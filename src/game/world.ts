@@ -155,7 +155,7 @@ export function buildWorld(scene: THREE.Scene, tex: TexSet) {
   const groundGeo = new THREE.PlaneGeometry(90, 90);
   const ground = new THREE.Mesh(
     groundGeo,
-    new THREE.MeshStandardMaterial({ map: tex.ground, roughness: 0.95, metalness: 0.02 }),
+    new THREE.MeshStandardMaterial({ map: tex.asphalt, roughness: 0.95, metalness: 0.02 }),
   );
   ground.rotation.x = -Math.PI / 2;
   ground.position.y = 0;
