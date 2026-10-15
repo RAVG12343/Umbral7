@@ -85,9 +85,13 @@ export function installRealismEnhancements() {
       const sx = (Math.random() - 0.5) * shake * 0.06;
       const sy = (Math.random() - 0.5) * shake * 0.06;
       const rot = (Math.random() - 0.5) * shake * 0.01;
-      this.yawPivot.position.x += sx;
-      this.yawPivot.position.y += sy;
-      this.yawPivot.rotation.y += rot;
+      try {
+        if (this.yawPivot) {
+          this.yawPivot.position.x += sx;
+          this.yawPivot.position.y += sy;
+          this.yawPivot.rotation.y += rot;
+        }
+      } catch {}
       // decay the shake
       this._realism.cameraShake = Math.max(0, shake - dt * 1.8);
     }
@@ -96,8 +100,10 @@ export function installRealismEnhancements() {
     if (s.applyPitchOffset || s.applyYawOffset) {
       try {
         const cam = this.camera;
-        cam.rotation.x = (cam.rotation.x || 0) + (s.applyPitchOffset || 0);
-        cam.rotation.y = (cam.rotation.y || 0) + (s.applyYawOffset || 0) * 0.25;
+        if (cam) {
+          cam.rotation.x = (cam.rotation.x || 0) + (s.applyPitchOffset || 0);
+          cam.rotation.y = (cam.rotation.y || 0) + (s.applyYawOffset || 0) * 0.25;
+        }
         // small recovery
         s.applyPitchOffset *= 0.92;
         s.applyYawOffset *= 0.92;
@@ -145,8 +151,12 @@ export function installRealismEnhancements() {
       b.vy *= 0.3;
       b.energy *= 0.35;
       // spawn spark particles
-      this.burst(b.x, b.y, b.z, 0xffcc88, 8, 6.5);
-      this.audio.impact("metal", b.x, b.y, b.z);
+      try {
+        this.burst(b.x, b.y, b.z, 0xffcc88, 8, 6.5);
+      } catch {}
+      try {
+        if (this.audio) this.audio.impact("metal", b.x, b.y, b.z);
+      } catch {}
       return true; // treat as stopped for the bullet pipeline
     }
     const out = originalHitCol.call(this, b, c);
@@ -161,7 +171,7 @@ export function installRealismEnhancements() {
     // default map for new weapons
     if (g.id === "carbine") {
       let s = 0.009; // tighter than rifle
-      s *= [1, 0.74, 0.52][g.mods.sight];
+      s *= [1, 0.74, 0.52][g.mods?.sight ?? 0] ?? 1;
       s *= 1 + g.dirt * 0.6 + g.heat * 0.22;
       s *= 1 - this.adsV * 0.72;
       return s;
@@ -184,26 +194,26 @@ export function installRealismEnhancements() {
 
   const originalRecoilOf = proto.recoilOf;
   proto.recoilOf = function (this: any, g: any) {
-    if (g.id === "carbine") return 0.014 * [1, 1, 0.92][g.mods.stock];
-    if (g.id === "pistol") return 0.022 * [1, 1, 0.9][g.mods.barrel];
-    if (g.id === "lmg") return 0.028 * [1, 1, 1.05][g.mods.stock];
+    if (g.id === "carbine") return 0.014 * [1, 1, 0.92][g.mods?.stock ?? 0];
+    if (g.id === "pistol") return 0.022 * [1, 1, 0.9][g.mods?.barrel ?? 0];
+    if (g.id === "lmg") return 0.028 * [1, 1, 1.05][g.mods?.stock ?? 0];
     if (g.id === "melee") return 0.001;
     return originalRecoilOf.call(this, g);
   };
 
   const originalMuzzleOf = proto.muzzleOf;
   proto.muzzleOf = function (this: any, g: any) {
-    if (g.id === "carbine") return 82 * [0.95, 1, 1.08][g.mods.barrel];
-    if (g.id === "pistol") return 38 * [1, 1, 1.02][g.mods.barrel];
-    if (g.id === "lmg") return 92 * [0.9, 1, 1.06][g.mods.barrel];
+    if (g.id === "carbine") return 82 * [0.95, 1, 1.08][g.mods?.barrel ?? 0];
+    if (g.id === "pistol") return 38 * [1, 1, 1.02][g.mods?.barrel ?? 0];
+    if (g.id === "lmg") return 92 * [0.9, 1, 1.06][g.mods?.barrel ?? 0];
     return originalMuzzleOf.call(this, g);
   };
 
   const originalMagMax = proto.magMax;
   proto.magMax = function (this: any, g: any) {
-    if (g.id === "carbine") return Math.max(1, Math.round((g.id === "carbine" ? 25 : 30) * [0.8, 1, 1.5][g.mods.mag]));
-    if (g.id === "pistol") return Math.max(1, Math.round(15 * [0.8, 1, 1.3][g.mods.mag]));
-    if (g.id === "lmg") return Math.max(1, Math.round(80 * [0.8, 1, 1.3][g.mods.mag]));
+    if (g.id === "carbine") return Math.max(1, Math.round((g.id === "carbine" ? 25 : 30) * [0.8, 1, 1.5][g.mods?.mag ?? 0]));
+    if (g.id === "pistol") return Math.max(1, Math.round(15 * [0.8, 1, 1.3][g.mods?.mag ?? 0]));
+    if (g.id === "lmg") return Math.max(1, Math.round(80 * [0.8, 1, 1.3][g.mods?.mag ?? 0]));
     return originalMagMax.call(this, g);
   };
 
@@ -220,22 +230,27 @@ export function installRealismEnhancements() {
   // Audio occlusion: patch GameAudio.space to plug a more aggressive lowpass when occluded
   try {
     const GameAudio = (await import("@/game/audio")).GameAudio as any;
+    // add toggle method
+    GameAudio.prototype.setOcclusionEnabled = function (this: any, v: boolean) {
+      this._occlusionEnabled = !!v;
+      if (!this.ctx) return;
+      // apply fallback muffle when disabled
+    };
     const origSpace = GameAudio.prototype.space;
     GameAudio.prototype.space = function (x: number, y: number, z: number, occluded: boolean) {
       // call original to get panner or filtered node
       const out = origSpace.call(this, x, y, z, occluded);
-      // if occluded, add an additional lowpass for stronger muffle
+      // if occluded and the feature is enabled, add an additional lowpass for stronger muffle
       try {
         const ctx = this.ctx;
-        if (occluded && ctx) {
+        const enabled = !!this._occlusionEnabled;
+        if (occluded && ctx && enabled) {
           const filter = ctx.createBiquadFilter();
           filter.type = "lowpass";
           // base muffle factor depends on rain/indoor
           const freq = (this as any).muffle?.frequency?.value ?? 1000;
-          filter.frequency.value = Math.max(420, freq * 0.6);
+          filter.frequency.value = Math.max(420, freq * 0.5);
           filter.Q.value = 1.6;
-          // reconnect chain: input -> filter -> original.input
-          // origSpace may return filter or panner in different shapes; we try to rewire conservatively
           try {
             out.input.disconnect();
           } catch {}
@@ -252,8 +267,21 @@ export function installRealismEnhancements() {
     };
   } catch (e) {
     // audio module couldn't be patched; ignore
-    // console.warn('Realism: failed to patch GameAudio', e);
   }
+
+  // Patch Engine.setSettings to accept audioOcclusion flag and forward to audio
+  const origSetSettings = proto.setSettings;
+  proto.setSettings = function (this: any, patch: any) {
+    try {
+      if (patch && typeof patch.audioOcclusion !== "undefined") {
+        try {
+          if (this.audio && typeof this.audio.setOcclusionEnabled === "function") this.audio.setOcclusionEnabled(!!patch.audioOcclusion);
+          else if (this.audio) this.audio._occlusionEnabled = !!patch.audioOcclusion;
+        } catch {}
+      }
+    } catch {}
+    return origSetSettings.call(this, patch);
+  };
 
   // Battle Royale skeleton: client-side only
   proto.startBattleRoyale = function (this: any, opts: any = {}) {
@@ -261,11 +289,15 @@ export function installRealismEnhancements() {
     this._br = this._br ?? {};
     this._br.active = true;
     this._br.center = { x: opts.cx ?? 0, z: opts.cz ?? 0 };
-    this._br.radius = opts.initialRadius ?? 26;
+    this._br.initialRadius = opts.initialRadius ?? 26;
     this._br.targetRadius = opts.targetRadius ?? 4;
     this._br.shrinkDuration = opts.shrinkDuration ?? 360; // seconds
     this._br.elapsed = 0;
-    this.say("Battle Royale iniciado (cliente).", 3.5);
+    this.say && this.say("Battle Royale iniciado (cliente).", 3.5);
+    // register weapon presets when BR starts so players have presets available
+    try {
+      this.registerWeaponPresets && this.registerWeaponPresets();
+    } catch {}
   };
   proto.stopBattleRoyale = function (this: any) {
     if (this._br) this._br.active = false;
@@ -275,24 +307,18 @@ export function installRealismEnhancements() {
     this._br.elapsed += dt;
     const t = clamp(this._br.elapsed / Math.max(1, this._br.shrinkDuration), 0, 1);
     // linear shrink for now
-    this._br.radius = this._br.initialRadius ?? this._br.radius;
-    const r = lerp(this._br.radius, this._br.targetRadius, t);
+    const r = lerp(this._br.initialRadius, this._br.targetRadius, t);
     this._br.currentRadius = r;
-    // optionally spawn loot when radius crosses thresholds
     if (!this._br._notified && t > 0.05) {
       this._br._notified = true;
-      this.say("La zona se está reduciendo.", 3.2);
+      this.say && this.say("La zona se está reduciendo.", 3.2);
     }
-    // we could apply damage to players outside; client just warns
   };
 
   // Horde / loot: simple periodic loot spawner to add pickups when waves clear
   proto.spawnLootPickup = function (this: any, x: number, z: number, kind: string, amount: number) {
-    const mesh = this.scene && this.scene.getObjectByName("dummyLoot") ? this.scene.getObjectByName("dummyLoot") : null;
-    // reuse existing pickup system if present
     if (this.pickups) {
-      const p = { x, z, kind, amount, on: true, needUnlock: false, mesh: null };
-      // create simple mesh fallback for visibility
+      const p: any = { x, z, kind, amount, on: true, needUnlock: false, mesh: null };
       const geo = new THREE.BoxGeometry(0.28, 0.18, 0.22);
       const mat = new THREE.MeshStandardMaterial({ color: "#d7b06a", emissive: "#e2a04a", emissiveIntensity: 0.4, roughness: 0.45 });
       const m = new THREE.Mesh(geo, mat);
@@ -317,14 +343,12 @@ export function installRealismEnhancements() {
       const robot = hub.get("robot");
       if (robot && robot.gltf) {
         // simple integration: add first robot scene to viewScene as a test model (non-instanced)
-        // We try to place it off-screen and keep an active mixer
-        const Engine = EngineCtor as any;
-        // delay until an engine instance exists
         setTimeout(() => {
           try {
+            const Engine = EngineCtor as any;
             // find any engine instance on window (mounted earlier)
-            const anyWin = (window as any).__lastEngineInstance ?? null;
-            if (!anyWin) {
+            const inst = (window as any).__lastEngineInstance ?? null;
+            if (!inst) {
               // scan global objects
               for (const k of Object.keys(window as any)) {
                 const v = (window as any)[k];
@@ -334,34 +358,36 @@ export function installRealismEnhancements() {
                 }
               }
             }
-            const inst = (window as any).__lastEngineInstance;
-            if (!inst) return;
+            const engineInst = (window as any).__lastEngineInstance as any;
+            if (!engineInst) return;
+            // ensure weapon presets are registered
+            try {
+              engineInst.registerWeaponPresets && engineInst.registerWeaponPresets();
+            } catch {}
+
             const scene = robot.gltf.scene.clone(true);
             scene.traverse((n: any) => {
               if (n.isMesh) n.castShadow = true;
             });
             scene.scale.setScalar(0.8);
             scene.position.set(18, 0, -12);
-            inst.viewScene.add(scene);
+            engineInst.viewScene.add(scene);
             if (robot.mixer && robot.gltf.animations?.length) {
               robot.mixer = new THREE.AnimationMixer(scene);
               const clip = robot.gltf.animations[0];
               robot.mixer.clipAction(clip).play();
               // register on engine tick to advance
-              const mix = robot.mixer;
-              const tick = (dt: number) => mix.update(dt);
-              // attach to engine loop
-              inst._realism = inst._realism || {};
-              inst._realism._mixers = inst._realism._mixers || [];
-              inst._realism._mixers.push(mix);
+              engineInst._realism = engineInst._realism || {};
+              engineInst._realism._mixers = engineInst._realism._mixers || [];
+              engineInst._realism._mixers.push(robot.mixer);
               // ensure engine.frame will call mix update: we patch mountProbe to advance mixers
-              const originalFrame = inst.frame.bind(inst);
-              inst.frame = function (t: number) {
+              const originalFrame = engineInst.frame.bind(engineInst);
+              engineInst.frame = function (t: number) {
                 originalFrame(t);
                 const now = typeof t === "number" ? t : performance.now();
-                const dt = Math.min(0.05, (now - (inst._realism._last || now)) / 1000);
-                inst._realism._last = now;
-                for (const m of inst._realism._mixers || []) m.update(dt);
+                const dt = Math.min(0.05, (now - (engineInst._realism._last || now)) / 1000);
+                engineInst._realism._last = now;
+                for (const m of engineInst._realism._mixers || []) m.update(dt);
               };
             }
           } catch (e) {
