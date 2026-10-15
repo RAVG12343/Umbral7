@@ -1,0 +1,26 @@
+{
+  "models": [
+    {
+      "id": "robot",
+      "name": "RobotExpressive",
+      "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/RobotExpressive/glTF-Binary/RobotExpressive.glb",
+      "license": "CC0",
+      "source": "Khronos glTF Sample Models"
+    },
+    {
+      "id": "fox",
+      "name": "Fox",
+      "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Fox/glTF-Binary/Fox.glb",
+      "license": "CC0",
+      "source": "Khronos glTF Sample Models"
+    },
+    {
+      "id": "cesium",
+      "name": "CesiumMan",
+      "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/CesiumMan/glTF-Binary/CesiumMan.glb",
+      "license": "CC0",
+      "source": "Khronos glTF Sample Models"
+    }
+  ],
+  "sounds": []
+}
